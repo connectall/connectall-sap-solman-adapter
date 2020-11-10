@@ -1,0 +1,101 @@
+FUNCTION z_fm_crm_get_order.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     VALUE(IV_OBJECTID) TYPE  CRMT_OBJECT_ID_DB OPTIONAL
+*"     VALUE(IV_CREATION_DT) TYPE  COMT_CHANGED_AT_USR OPTIONAL
+*"  EXPORTING
+*"     VALUE(EV_STATUS) TYPE  CHAR20
+*"  TABLES
+*"      CT_ORDER_HEADER TYPE  ZTT_CRM_HEADER OPTIONAL
+*"      CT_TEXT STRUCTURE  BAPIBUS20001_TEXT_DIS OPTIONAL
+*"----------------------------------------------------------------------
+  DATA : lt_guid TYPE TABLE OF  bapibus20001_guid_dis.
+  DATA : ls_guid TYPE  bapibus20001_guid_dis.
+  DATA : lt_status_r TYPE TABLE OF bapibus20001_status_dis.
+  DATA : ls_crmd_orderadm_h TYPE zds_crmd_orderadm_h.
+  DATA : lt_order_h TYPE ztt_crm_header.
+  DATA : ls_txt04 TYPE tj30t.
+
+  DATA : lt_header_r TYPE TABLE OF bapibus2000110_header_dis.
+  DATA : lt_text TYPE TABLE OF bapibus20001_text_dis.
+  DATA : lt_ord_header TYPE ztt_crm_header.
+  DATA : ls_text TYPE bapibus20001_text_dis.
+  DATA : ls_text_td TYPE tdline.
+
+  IF NOT iv_objectid IS INITIAL.
+
+    SELECT * FROM crmd_orderadm_h INTO TABLE lt_ord_header
+                                         WHERE object_id = iv_objectid.
+  ENDIF.
+
+  IF NOT iv_creation_dt IS INITIAL .
+
+    SELECT * FROM crmd_orderadm_h INTO TABLE lt_ord_header
+                                         WHERE changed_at GE iv_creation_dt.
+  ENDIF.
+
+  IF sy-subrc NE 0.
+    ev_status = 'No Records Found'.
+    RETURN.
+  ENDIF.
+
+
+
+  LOOP AT lt_ord_header INTO DATA(ls_ord_header).
+    CLEAR : ls_guid.
+    REFRESH : lt_guid, lt_status_r, lt_text.
+
+    ls_guid-guid = ls_ord_header-guid.
+    INSERT ls_guid INTO TABLE lt_guid.
+
+    CALL FUNCTION 'BAPI_ACTIVITYCRM_GETDETAILMULT'
+      TABLES
+        guid   = lt_guid
+        status = lt_status_r
+        text   = lt_text.
+
+
+    MOVE-CORRESPONDING ls_ord_header TO ls_crmd_orderadm_h.
+    READ TABLE lt_status_r WITH KEY guid = ls_ord_header-guid INTO DATA(ls_status).
+
+    ls_crmd_orderadm_h-status = ls_status-status.
+
+*    CASE ls_status-status.
+*      WHEN 'E0001'.  "new
+*        ls_crmd_orderadm_h-ev_status = '10'.
+*      WHEN 'E0002'.  "In process
+*        ls_crmd_orderadm_h-ev_status = '20'.
+*      WHEN 'E0008'.  "Closed
+*        ls_crmd_orderadm_h-ev_status = '60'.
+*    ENDCASE.
+*    IF sy-subrc = 0.
+*      SELECT SINGLE * FROM tj30t INTO ls_txt04
+*                                      WHERE stsma = ls_status-user_stat_proc
+*                                        AND estat = ls_status-status.
+*      IF sy-subrc = 0.
+*        ls_crmd_orderadm_h-ev_status = ls_txt04-txt04.
+*      ENDIF.
+*    ENDIF.
+
+    LOOP AT lt_text INTO ls_text.
+      IF sy-tabix = 1.
+        CONCATENATE ls_text-tdline cl_bcs_convert=>gc_crlf INTO ls_crmd_orderadm_h-notes.
+      ELSE.
+        CONCATENATE ls_crmd_orderadm_h-notes ls_text-tdline cl_bcs_convert=>gc_crlf INTO ls_crmd_orderadm_h-notes.
+      ENDIF.
+    ENDLOOP.
+    APPEND ls_crmd_orderadm_h TO  lt_order_h.
+
+    CLEAR : ls_crmd_orderadm_h, ls_txt04,  ls_status.
+
+  ENDLOOP.
+  ct_order_header[] = lt_order_h[].
+
+
+
+
+
+
+
+ENDFUNCTION.

@@ -1,0 +1,360 @@
+FUNCTION z_fm_crm_order_update.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     VALUE(IV_OBJECT_ID) TYPE  CRMT_OBJECT_ID_DB OPTIONAL
+*"     VALUE(IV_DESCRIPTION) TYPE  CRMT_PROCESS_DESCRIPTION OPTIONAL
+*"     VALUE(IV_PARTNER) TYPE  CRMT_PARTNER_NUMBER OPTIONAL
+*"     VALUE(IV_PRIORITY) TYPE  CRMT_ACT_PROD_PRIORITY OPTIONAL
+*"     VALUE(IS_CRM_UPDATE) TYPE  ZDS_CRM_ORD_UPDATE OPTIONAL
+*"  EXPORTING
+*"     VALUE(EV_STATUS) TYPE  CHAR20
+*"     VALUE(EV_CRM_UPDATE) TYPE  ZDS_CRM_ORD_UPDATE
+*"----------------------------------------------------------------------
+  CONSTANTS: lc_e      TYPE c VALUE 'E',
+             lc_a      TYPE c VALUE 'A',
+             lc_b      TYPE c VALUE 'B',
+             lc_f      TYPE c VALUE 'F',
+             lc_s      TYPE c VALUE 'S',
+             lc_1      TYPE c VALUE '1',
+             lc_rtp(3) TYPE c VALUE 'RTP',
+             lc_z01(3) TYPE c VALUE 'Z01',
+             lc_bp(2)  TYPE c VALUE 'BP',
+             lc_est(3) TYPE c VALUE 'EST',
+             lc_guid   TYPE c VALUE 'G'.
+
+  DATA : lv_guid        TYPE crmt_object_guid.
+  DATA : lv_ref_guid    TYPE crmt_object_guid.
+
+  DATA : lv_logical_key TYPE crmt_logical_key.
+  DATA : lv_object      TYPE char1.
+  DATA : lt_ord_header TYPE ztt_crm_header.
+
+  DATA : lt_input_fields TYPE crmt_input_field_tab.
+  DATA : ls_input_fields TYPE crmt_input_field.
+  DATA: lt_fieldname     TYPE crmt_input_field_names_tab.
+  DATA: ls_fieldname     LIKE LINE OF lt_fieldname.
+
+  DATA : lt_orderadm TYPE crmt_orderadm_h_comt.
+  DATA : ls_orderadm TYPE crmt_orderadm_h_com.
+  DATA : lt_orderadm_r TYPE crmt_orderadm_h_wrkt.
+
+  DATA : lt_partner TYPE TABLE OF bapibus20001_partner_ins.
+  DATA : ls_partner TYPE bapibus20001_partner_ins.
+  DATA : lt_partnerx TYPE TABLE OF  bapibus20001_partner_insx.
+  DATA : ls_partnerx TYPE  bapibus20001_partner_insx.
+
+  DATA : lt_activity_r TYPE crmt_activity_h_wrkt.
+  DATA : lt_partner_r TYPE TABLE OF bapibus20001_partner_dis.
+
+  DATA : lt_activity TYPE crmt_activity_h_comt.
+  DATA : ls_activity TYPE crmt_activity_h_com.
+  DATA: lt_excep         TYPE crmt_exception_t.             "#EC NEEDED
+  DATA: lt_obj_guid      TYPE crmt_object_guid_tab.
+  DATA: ls_obj_guid      LIKE LINE OF lt_obj_guid.
+  DATA: lt_guih          TYPE crmt_object_guid_tab.
+  DATA: ls_guih          LIKE LINE OF lt_guih.
+  DATA: lt_saved_objects TYPE crmt_return_objects.
+  DATA: ls_return        TYPE bapiret2.
+
+
+  DATA : lt_header TYPE TABLE OF bapibus2000110_header_ins.
+  DATA : ls_header TYPE  bapibus2000110_header_ins.
+  DATA : lt_headerx TYPE TABLE OF bapibus2000110_header_insx.
+  DATA : ls_headerx TYPE bapibus2000110_header_insx.
+
+  DATA: lt_status TYPE TABLE OF bapibus20001_status_ins.
+  DATA: ls_status TYPE bapibus20001_status_ins.
+  DATA: lt_statusx TYPE TABLE OF bapibus20001_status_insx.
+  DATA: ls_statusx TYPE bapibus20001_status_insx.
+
+
+  DATA : lt_objtosave TYPE TABLE OF bapibus20001_guid_dis.
+  DATA : ls_objtosave TYPE bapibus20001_guid_dis.
+  DATA : lt_saveobject TYPE TABLE OF bapibus20001_object_id.
+  DATA : lt_return TYPE TABLE OF bapiret2.
+  DATA : lt_guid TYPE TABLE OF  bapibus20001_guid_dis.
+  DATA : ls_guid TYPE  bapibus20001_guid_dis.
+  DATA : lt_header_r TYPE TABLE OF bapibus2000110_header_dis.
+  DATA : lt_status_r TYPE TABLE OF bapibus20001_status_dis.
+
+  iv_object_id = is_crm_update-object_id.
+  iv_description = is_crm_update-description.
+  iv_priority = is_crm_update-priority.
+  iv_partner = is_crm_update-partner.
+
+
+  SELECT * FROM crmd_orderadm_h INTO TABLE lt_ord_header
+                                       WHERE object_id = iv_object_id.
+  IF sy-subrc NE 0.
+    ev_status = 'No Records found for  update'.
+    RETURN.
+  ENDIF.
+
+  READ TABLE lt_ord_header INDEX 1 INTO DATA(ls_ord_header).
+
+  MOVE ls_ord_header-guid TO ls_guih.
+  INSERT ls_guih INTO TABLE lt_guih.
+  ls_guid-guid = ls_ord_header-guid.
+  ls_guid-object_type = ls_ord_header-object_type.
+  INSERT ls_guid INTO TABLE lt_guid.
+  CALL FUNCTION 'BAPI_ACTIVITYCRM_GETDETAILMULT'
+    TABLES
+      guid    = lt_guid
+      header  = lt_header_r
+      partner = lt_partner_r
+      status  = lt_status_r.
+
+
+
+*  CALL FUNCTION 'CRM_ORDER_READ'
+*    EXPORTING
+*      it_header_guid       = lt_guih
+*    IMPORTING
+*      et_orderadm_h        = lt_orderadm_r
+*      et_activity_h        = lt_activity_r
+*      et_partner           = lt_partner_r
+*    EXCEPTIONS
+*      document_not_found   = 1
+*      error_occurred       = 2
+*      document_locked      = 3
+*      no_change_authority  = 4
+*      no_display_authority = 5
+*      no_change_allowed    = 6
+*      OTHERS               = 7.
+
+  CONCATENATE lv_object lc_guid   INTO lv_logical_key.
+  MOVE ls_ord_header-guid   TO lv_logical_key+2.
+
+  IF ( NOT iv_description IS INITIAL OR NOT iv_priority IS INITIAL ).
+
+*    ls_input_fields-ref_guid         = ls_ord_header-guid.
+*    ls_input_fields-ref_kind         = lc_a.
+*    ls_input_fields-objectname       = 'ORDERADM'.
+*    ls_input_fields-logical_key      = lv_logical_key.
+*    ls_fieldname-fieldname    = 'DESCRIPTION'.
+*    ls_fieldname-changeable   = abap_true.
+*    INSERT ls_fieldname INTO TABLE lt_fieldname.
+*    ls_input_fields-field_names      = lt_fieldname.
+*    INSERT ls_input_fields     INTO TABLE lt_input_fields.
+*    CLEAR : ls_input_fields , lt_fieldname.
+
+    READ TABLE lt_header_r ASSIGNING FIELD-SYMBOL(<ls_orderadm>) INDEX 1.
+    IF sy-subrc = 0.
+      MOVE-CORRESPONDING <ls_orderadm> TO ls_header.
+*      ls_header-object_id = ls_ord_header-object_id.
+*      ls_header-guid = ls_ord_header-guid.
+      IF NOT iv_description IS INITIAL.
+        ls_header-description = iv_description.
+      ENDIF.
+
+      IF NOT  iv_priority IS INITIAL.
+        ls_header-priority = iv_priority.
+      ENDIF.
+      INSERT ls_header INTO TABLE lt_header.
+      IF NOT iv_description IS INITIAL.
+        ls_headerx-description = 'X'.
+      ENDIF.
+      IF NOT  iv_priority IS INITIAL.
+        ls_headerx-priority = 'X'.
+      ENDIF.
+      INSERT  ls_headerx INTO TABLE lt_headerx.
+
+
+
+*      MOVE-CORRESPONDING <ls_orderadm> TO ls_orderadm.
+*      ls_orderadm-description = iv_description.
+*      INSERT ls_orderadm INTO TABLE lt_orderadm.
+*      CLEAR ls_orderadm.
+
+    ENDIF.
+  ELSE.
+    READ TABLE lt_header_r ASSIGNING <ls_orderadm> INDEX 1.
+    IF sy-subrc = 0.
+      MOVE-CORRESPONDING <ls_orderadm> TO ls_header.
+      INSERT ls_header INTO TABLE lt_header.
+    ENDIF.
+  ENDIF.
+
+
+
+
+*  IF NOT iv_priority IS INITIAL.
+*    ls_input_fields-ref_guid         = ls_ord_header-guid.
+*    ls_input_fields-ref_kind         = lc_a.
+*    ls_input_fields-objectname       = 'ACTIVITY'.
+*    ls_input_fields-logical_key      = lv_logical_key.
+*    ls_fieldname-fieldname    = 'PRIORITY'.
+*    ls_fieldname-changeable   = abap_true.
+*    INSERT ls_fieldname INTO TABLE lt_fieldname.
+*    ls_input_fields-field_names      = lt_fieldname.
+*    INSERT ls_input_fields     INTO TABLE lt_input_fields.
+*    CLEAR : ls_input_fields , lt_fieldname.
+*
+*    READ TABLE lt_activity_r ASSIGNING FIELD-SYMBOL(<ls_activity>) INDEX 1.
+*    IF sy-subrc = 0.
+*      MOVE-CORRESPONDING <ls_activity> TO ls_activity.
+*      ls_activity-priority       = iv_priority.
+*      ls_activity-ref_guid         = ls_ord_header-guid.
+*      INSERT ls_activity INTO TABLE lt_activity.
+*      CLEAR : ls_activity.
+*    ENDIF.
+*
+*  ENDIF.
+*
+  IF NOT iv_partner IS INITIAL.
+*    ls_input_fields-ref_guid         = ls_ord_header-guid.
+*    ls_input_fields-ref_kind         = lc_a.
+*    ls_input_fields-objectname       = 'PARTNER'.
+*    ls_input_fields-logical_key      = lv_logical_key.
+*    ls_fieldname-fieldname    = 'PARTNER_NO'.
+*    ls_fieldname-changeable   = abap_true.
+*    INSERT ls_fieldname INTO TABLE lt_fieldname.
+*    ls_input_fields-field_names      = lt_fieldname.
+*    INSERT ls_input_fields     INTO TABLE lt_input_fields.
+*    CLEAR : ls_input_fields , lt_fieldname.
+*
+    READ TABLE lt_partner_r WITH KEY partner_fct = 'SLFN0003'
+                             ASSIGNING FIELD-SYMBOL(<ls_partner>).
+    IF sy-subrc = 0.
+      MOVE-CORRESPONDING <ls_partner> TO ls_partner.
+      ls_partner-partner_no      = iv_partner.
+      INSERT ls_partner INTO TABLE lt_partner.
+      CLEAR ls_partner.
+      ls_partnerx-partner_no = 'X'.
+      INSERT ls_partnerx INTO TABLE lt_partnerx.
+      CLEAR : ls_partnerx.
+    ENDIF.
+
+  ENDIF.
+
+
+
+  IF NOT is_crm_update-status IS INITIAL.
+    READ TABLE lt_status_r INDEX 1 INTO DATA(ls_status_r).
+    IF sy-subrc = 0.
+      MOVE-CORRESPONDING ls_status_r TO ls_status.
+      ls_status-ref_guid = ls_status_r-guid.
+      ls_status-ref_kind = ls_status_r-kind.
+      ls_status-activate = 'X'.
+      ls_status-status = is_crm_update-status.
+*
+*      CASE is_crm_update-status.
+*        WHEN '10'.  "new
+*          ls_status-status = 'E0001'.
+*        WHEN '20'. "inprocess
+*          ls_status-status = 'E0002'.
+*        WHEN 'PS'.
+*          ls_status-status = 'E0005'.
+*        WHEN 'FO'.
+*          ls_status-status = 'E0009'.
+*        WHEN '60'. "closed
+*          ls_status-status = 'E0008'.
+*      ENDCASE.
+      INSERT ls_status INTO TABLE lt_status.
+
+
+      ls_statusx-status = 'X'.
+      ls_statusx-activate = 'X'.
+      INSERT ls_statusx INTO TABLE lt_statusx.
+    ENDIF.
+  ENDIF.
+
+  CALL FUNCTION 'BAPI_ACTIVITYCRM_CHANGEMULTI'
+    TABLES
+      header   = lt_header
+      headerx  = lt_headerx
+      partner  = lt_partner
+      partnerx = lt_partnerx
+      status   = lt_status
+      statusx  = lt_statusx.
+
+
+  IF sy-subrc = 0.
+    ls_objtosave-guid = ls_ord_header-guid.
+    INSERT ls_objtosave INTO TABLE lt_objtosave.
+
+    WAIT UP TO 2 SECONDS.
+    CALL FUNCTION 'BAPI_ACTIVITYCRM_SAVE'
+      TABLES
+        objects_to_save = lt_objtosave
+        saved_objects   = lt_saveobject
+        return          = lt_return.
+
+    WAIT UP TO 1 SECONDS.
+    IF NOT lt_saveobject[] IS INITIAL.
+      CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+        EXPORTING
+          wait   = abap_true
+        IMPORTING
+          return = ls_return.
+
+      ev_status = 'Update Success'.
+      ev_crm_update-description = is_crm_update-description.
+      ev_crm_update-priority = is_crm_update-priority.
+      ev_crm_update-object_id = is_crm_update-object_id.
+      ev_crm_update-partner = is_crm_update-partner.
+      ev_crm_update-status = is_crm_update-status.
+    ELSE.
+      ev_status = 'Update Failed'.
+    ENDIF.
+  ENDIF.
+*
+*  CALL FUNCTION 'CRM_ORDER_MAINTAIN'
+*    EXPORTING
+*      it_activity_h     = lt_activity
+*      it_partner        = lt_partner
+*    IMPORTING
+*      et_exception      = lt_excep
+*    CHANGING
+*      ct_orderadm_h     = lt_orderadm
+*      ct_input_fields   = lt_input_fields
+*    EXCEPTIONS
+*      error_occurred    = 1
+*      document_locked   = 2
+*      no_change_allowed = 3
+*      no_authority      = 4
+*      OTHERS            = 5.
+*  IF sy-subrc = 0.
+*    ls_obj_guid = ls_ord_header-guid.
+*    INSERT ls_obj_guid INTO TABLE lt_obj_guid.
+*
+*    CALL FUNCTION 'CRM_ORDER_SAVE'
+*      EXPORTING
+*        it_objects_to_save     = lt_obj_guid
+*      IMPORTING
+*        et_saved_objects       = lt_saved_objects
+*      CHANGING
+*        ct_nocheck_before_save = lt_obj_guid
+*      EXCEPTIONS
+*        document_not_saved     = 1
+*        OTHERS                 = 2.
+*    IF sy-subrc = 0.
+*      CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+*        EXPORTING
+*          wait   = abap_true
+*        IMPORTING
+*          return = ls_return.
+*
+*      ev_status = 'Update Success'.
+*    ENDIF.
+*  ELSE.
+*    IF sy-subrc NE 0.
+*      ev_status = 'Update Failed'.
+*    ENDIF.
+*
+*  ENDIF.
+*
+  CALL FUNCTION 'CRM_ORDER_INITIALIZE'
+    EXPORTING
+      it_guids_to_init = lt_guih
+    EXCEPTIONS
+      error_occurred   = 1
+      OTHERS           = 2.
+
+
+
+
+
+
+ENDFUNCTION.
