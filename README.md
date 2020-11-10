@@ -1,0 +1,1 @@
+# connectall-sap-solman-adapter
