@@ -2,7 +2,7 @@
 
 ConnectALL SAP/SolMan Adapter is developed as an extension to the Universal Adapter capability of ConnectALL. The adapter specifications will let the user sync a SolMan incident using a custom api developed in SolMan to another endpoint using the ConnectALL Integration Hub. A custom api must be developed in SOlMan (an example is included in this repository). A common use if that SolMan minotring detects an alert, the alert exceeds a pre-defined threshold (like 10% disk left), and the incident is sent to an issue tracking suystyem (ITSM) like JIRA or ServiceNow where the alert is worked, resolved, and the status of Done/Closed is sent back to SolMan.
 
-Please refer to https://wiki.connectall.com/ca/latest/user-guide/adapters/custom-application-adapter for more information
+Please refer to https://wiki.connectall.com/ca/latest/adapters/universal-adapter for more information
 
 # How to use
 
